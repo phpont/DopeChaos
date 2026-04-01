@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/dc-protocol",
+    "crates/dc-core",
+    "crates/dc-render",
+    "crates/dc-app",
+]
+resolver = "2"

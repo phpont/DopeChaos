@@ -1,7 +1,13 @@
-.next/
-node_modules/
-out/
+/target/
+/dist/
+/docs/
+/.next/
+/node_modules/
+/out/
+**/*.rs.bk
+Cargo.lock
+.DS_Store
+.env
 .vercel
 *.tsbuildinfo
 next-env.d.ts
-.claude

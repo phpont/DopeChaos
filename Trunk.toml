@@ -1,0 +1,8 @@
+[build]
+target = "index.html"
+dist = "dist"
+# Stable filenames required so chaos.worker.js can import dopechaos.js by fixed name
+filehash = false
+
+[watch]
+ignore = ["./dist", "./docs"]

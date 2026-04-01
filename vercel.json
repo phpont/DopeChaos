@@ -1,0 +1,18 @@
+{
+  "buildCommand": "curl -fsSL https://trunk.rs/update-trunk.sh | bash -s -- --version v0.21.1 && trunk build --release",
+  "outputDirectory": "dist",
+  "installCommand": "curl https://sh.rustup.rs -sSf | sh -s -- -y --target wasm32-unknown-unknown && rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli",
+  "framework": null,
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    }
+  ]
+}
