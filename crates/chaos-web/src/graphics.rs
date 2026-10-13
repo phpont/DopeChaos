@@ -1,4 +1,5 @@
-use chaos_core::{Parameters, State, rk4_step};
+use std::mem::size_of;
+
 use wasm_bindgen::JsCast;
 use web_sys::{
     HtmlCanvasElement, WebGl2RenderingContext as Gl, WebGlBuffer, WebGlProgram, WebGlShader,
@@ -7,9 +8,6 @@ use web_sys::{
 
 const VERTEX_SHADER: &str = include_str!("shaders/trajectory.vert");
 const FRAGMENT_SHADER: &str = include_str!("shaders/trajectory.frag");
-const SAMPLE_COUNT: usize = 14_000;
-const BURN_IN: usize = 1_000;
-const STEP: f64 = 0.005;
 
 pub struct Renderer {
     gl: Gl,
@@ -18,11 +16,16 @@ pub struct Renderer {
     vao: WebGlVertexArrayObject,
     aspect: WebGlUniformLocation,
     vertex_count: i32,
+    capacity: usize,
 }
 
 impl Renderer {
-    pub fn new(canvas: &HtmlCanvasElement) -> Result<Self, String> {
-        let vertices = trajectory()?;
+    pub fn new(canvas: &HtmlCanvasElement, capacity: usize) -> Result<Self, String> {
+        let buffer_size = capacity
+            .checked_mul(3)
+            .and_then(|value| value.checked_mul(size_of::<f32>()))
+            .and_then(|value| i32::try_from(value).ok())
+            .ok_or_else(|| "Vertex buffer exceeds WebGL limits.".to_string())?;
 
         let gl = canvas
             .get_context("webgl2")
@@ -43,7 +46,6 @@ impl Renderer {
         let linked = link_program(&gl, &vertex, &fragment);
         gl.delete_shader(Some(&vertex));
         gl.delete_shader(Some(&fragment));
-
         let program = linked?;
 
         let buffer = match gl.create_buffer() {
@@ -75,13 +77,9 @@ impl Renderer {
 
         gl.bind_vertex_array(Some(&vao));
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&buffer));
-
-        let positions = js_sys::Float32Array::from(vertices.as_slice());
-        gl.buffer_data_with_array_buffer_view(Gl::ARRAY_BUFFER, &positions, Gl::STATIC_DRAW);
-
+        gl.buffer_data_with_i32(Gl::ARRAY_BUFFER, buffer_size, Gl::DYNAMIC_DRAW);
         gl.enable_vertex_attrib_array(0);
         gl.vertex_attrib_pointer_with_i32(0, 3, Gl::FLOAT, false, 0, 0);
-
         gl.bind_vertex_array(None);
         gl.bind_buffer(Gl::ARRAY_BUFFER, None);
 
@@ -91,8 +89,37 @@ impl Renderer {
             buffer,
             vao,
             aspect,
-            vertex_count: (vertices.len() / 3) as i32,
+            vertex_count: 0,
+            capacity,
         })
+    }
+
+    pub fn append(&mut self, positions: &[f32]) -> Result<(), String> {
+        if !positions.len().is_multiple_of(3) {
+            return Err("Invalid vertex layout.".into());
+        }
+
+        let incoming = positions.len() / 3;
+        if incoming > self.capacity - self.vertex_count as usize {
+            return Err("Vertex buffer capacity exceeded.".into());
+        }
+
+        if positions.is_empty() {
+            return Ok(());
+        }
+
+        let offset = self.vertex_count * 3 * size_of::<f32>() as i32;
+        let data = js_sys::Float32Array::from(positions);
+        self.gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.buffer));
+        self.gl
+            .buffer_sub_data_with_i32_and_array_buffer_view(Gl::ARRAY_BUFFER, offset, &data);
+        self.gl.bind_buffer(Gl::ARRAY_BUFFER, None);
+        self.vertex_count += incoming as i32;
+        Ok(())
+    }
+
+    pub fn reset(&mut self) {
+        self.vertex_count = 0;
     }
 
     pub fn draw(&self, width: u32, height: u32) {
@@ -104,12 +131,14 @@ impl Renderer {
         self.gl.clear_color(0.039, 0.047, 0.063, 1.0);
         self.gl.clear(Gl::COLOR_BUFFER_BIT | Gl::DEPTH_BUFFER_BIT);
         self.gl.enable(Gl::DEPTH_TEST);
-
         self.gl.use_program(Some(&self.program));
         self.gl
             .uniform1f(Some(&self.aspect), width as f32 / height as f32);
         self.gl.bind_vertex_array(Some(&self.vao));
         self.gl.draw_arrays(Gl::LINE_STRIP, 0, self.vertex_count);
+        if self.vertex_count > 0 {
+            self.gl.draw_arrays(Gl::POINTS, self.vertex_count - 1, 1);
+        }
         self.gl.bind_vertex_array(None);
         self.gl.use_program(None);
     }
@@ -121,27 +150,6 @@ impl Drop for Renderer {
         self.gl.delete_buffer(Some(&self.buffer));
         self.gl.delete_program(Some(&self.program));
     }
-}
-
-fn trajectory() -> Result<Vec<f32>, String> {
-    let mut state = State {
-        x: 1.0,
-        y: 1.0,
-        z: 1.0,
-    };
-    let params = Parameters::default();
-    let mut vertices = Vec::with_capacity(SAMPLE_COUNT * 3);
-
-    for index in 0..(BURN_IN + SAMPLE_COUNT) {
-        state = rk4_step(state, params, STEP)
-            .map_err(|error| format!("Lorenz integration failed: {error:?}"))?;
-
-        if index >= BURN_IN {
-            vertices.extend_from_slice(&[state.x as f32, state.y as f32, state.z as f32]);
-        }
-    }
-
-    Ok(vertices)
 }
 
 fn compile_shader(gl: &Gl, kind: u32, source: &str) -> Result<WebGlShader, String> {
@@ -163,7 +171,6 @@ fn compile_shader(gl: &Gl, kind: u32, source: &str) -> Result<WebGlShader, Strin
     let error = gl
         .get_shader_info_log(&shader)
         .unwrap_or_else(|| "Unknown shader compilation error.".into());
-
     gl.delete_shader(Some(&shader));
     Err(error)
 }
@@ -192,7 +199,6 @@ fn link_program(
     let error = gl
         .get_program_info_log(&program)
         .unwrap_or_else(|| "Unknown program linking error.".into());
-
     gl.delete_program(Some(&program));
     Err(error)
 }
