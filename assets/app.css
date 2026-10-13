@@ -42,17 +42,20 @@ h1 {
 }
 
 .viewport {
+    position: relative;
     margin-top: 2.5rem;
     overflow: hidden;
     border: 1px solid #252a32;
     background: #0a0c10;
+    aspect-ratio: 16 / 9;
 }
 
 .viewport canvas {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
+    height: 100%;
 }
 
 .status {
