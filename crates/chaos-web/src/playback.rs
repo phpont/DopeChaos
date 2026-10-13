@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use chaos_core::{LorenzPair, PairStates, Parameters, State};
 use wasm_bindgen::{JsCast, closure::Closure};
-use web_sys::{HtmlCanvasElement, Window};
+use web_sys::{HtmlCanvasElement, ResizeObserver, Window};
 
 use crate::graphics::Renderer;
 
@@ -23,6 +23,8 @@ pub struct Playback {
     playing: bool,
     pending_frame: Option<i32>,
     callback: Option<Closure<dyn FnMut(f64)>>,
+    resize_observer: Option<ResizeObserver>,
+    resize_callback: Option<Closure<dyn FnMut(js_sys::Array, ResizeObserver)>>,
     on_progress: Box<dyn Fn(f64)>,
     on_stopped: Box<dyn Fn()>,
     on_error: Box<dyn Fn(String)>,
@@ -67,6 +69,8 @@ impl Playback {
             playing: false,
             pending_frame: None,
             callback: None,
+            resize_observer: None,
+            resize_callback: None,
             on_progress: Box::new(on_progress),
             on_stopped: Box::new(on_stopped),
             on_error: Box::new(on_error),
@@ -98,8 +102,69 @@ impl Playback {
         }));
 
         playback.borrow_mut().callback = Some(callback);
-        playback.borrow_mut().resume()?;
+
+        let weak = Rc::downgrade(&playback);
+        let resize_callback =
+            Closure::<dyn FnMut(js_sys::Array, ResizeObserver)>::new(move |_, _| {
+                if let Some(shared) = weak.upgrade() {
+                    shared.borrow_mut().resize();
+                }
+            });
+
+        let observer = ResizeObserver::new(resize_callback.as_ref().unchecked_ref())
+            .map_err(|error| format!("ResizeObserver initialization failed: {error:?}"))?;
+
+        let container = playback
+            .borrow()
+            .canvas
+            .parent_element()
+            .ok_or_else(|| "Canvas container unavailable.".to_string())?;
+
+        observer.observe(&container);
+
+        {
+            let mut player = playback.borrow_mut();
+            player.resize_observer = Some(observer);
+            player.resize_callback = Some(resize_callback);
+            player.resize();
+            player.resume()?;
+        }
+
         Ok(playback)
+    }
+
+    fn resize(&mut self) {
+        let rect = self.canvas.get_bounding_client_rect();
+        let css_width = rect.width();
+        let css_height = rect.height();
+
+        if !css_width.is_finite()
+            || !css_height.is_finite()
+            || css_width <= 0.0
+            || css_height <= 0.0
+        {
+            return;
+        }
+
+        let ratio = self.window.device_pixel_ratio();
+        let ratio = if ratio.is_finite() && ratio > 0.0 {
+            ratio.min(2.0)
+        } else {
+            1.0
+        };
+
+        let scale = ratio.min(4096.0 / css_width).min(4096.0 / css_height);
+
+        let width = (css_width * scale).round().max(1.0) as u32;
+        let height = (css_height * scale).round().max(1.0) as u32;
+
+        if self.canvas.width() == width && self.canvas.height() == height {
+            return;
+        }
+
+        self.canvas.set_width(width);
+        self.canvas.set_height(height);
+        self.renderer.draw(width, height);
     }
 
     fn schedule(&mut self) -> Result<(), String> {
@@ -191,6 +256,12 @@ impl Playback {
 impl Drop for Playback {
     fn drop(&mut self) {
         self.pause();
+
+        if let Some(observer) = self.resize_observer.take() {
+            observer.disconnect();
+        }
+
+        self.resize_callback = None;
         self.callback = None;
     }
 }

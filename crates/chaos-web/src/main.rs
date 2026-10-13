@@ -56,8 +56,7 @@ fn App() -> impl IntoView {
             <section class="viewport" aria-label="Lorenz attractor visualization">
                 <canvas
                     node_ref=canvas
-                    width="1200"
-                    height="675"
+
                     aria-label="Lorenz trajectory evolving from the initial state"
                 />
             </section>
