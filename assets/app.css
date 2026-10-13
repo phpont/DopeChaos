@@ -15,9 +15,9 @@ body {
 }
 
 .shell {
-    width: min(100% - 3rem, 720px);
+    width: min(100% - 3rem, 1100px);
     margin: 0 auto;
-    padding: clamp(5rem, 12vh, 10rem) 0;
+    padding: clamp(2rem, 5vw, 4rem) 0;
 }
 
 .eyebrow {
@@ -27,22 +27,65 @@ body {
 }
 
 h1 {
-    margin: 1.5rem 0 1rem;
-    font-size: clamp(2.5rem, 7vw, 5rem);
+    margin: 1.25rem 0 0.75rem;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
     font-weight: 500;
     letter-spacing: -0.055em;
     line-height: 1.05;
 }
 
 .description {
-    max-width: 35rem;
+    max-width: 42rem;
     color: #b8bec7;
-    font-size: 1.125rem;
+    font-size: 1rem;
     line-height: 1.6;
 }
 
+.viewport {
+    margin-top: 2.5rem;
+    overflow: hidden;
+    border: 1px solid #252a32;
+    background: #0a0c10;
+}
+
+.viewport canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
 .status {
-    margin-top: 3rem;
+    margin-top: 1rem;
     color: #9199a5;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.playback-controls button {
+    border: 1px solid #343c45;
+    background: #1b222b;
+    color: #eceef0;
+    padding: 0.55rem 0.9rem;
+    font: inherit;
     font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.playback-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.playback-controls output {
+    margin-left: auto;
+    color: #a4aab4;
+    font: 0.875rem ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
 }
