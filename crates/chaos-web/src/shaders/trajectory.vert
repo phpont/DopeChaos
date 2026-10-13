@@ -5,34 +5,37 @@ layout(location = 0) in vec3 a_state;
 uniform float u_aspect;
 
 void main() {
-    vec3 p = vec3(
-        a_state.x / 24.0,
-        (a_state.z - 25.0) / 27.0,
-        a_state.y / 30.0
-    );
+    vec3 eye = vec3(45.0, -70.0, 40.0);
+    vec3 target = vec3(0.0, 0.0, 24.0);
+    vec3 world_up = vec3(0.0, 0.0, 1.0);
 
-    float yaw = 0.55;
-    float pitch = -0.3;
+    vec3 forward = normalize(target - eye);
+    vec3 right = normalize(cross(forward, world_up));
+    vec3 up = cross(right, forward);
 
-    vec3 rotated = vec3(
-        cos(yaw) * p.x + sin(yaw) * p.z,
-        p.y,
-        -sin(yaw) * p.x + cos(yaw) * p.z
-    );
+    vec3 relative = a_state - eye;
 
-    vec3 tilted = vec3(
-        rotated.x,
-        cos(pitch) * rotated.y - sin(pitch) * rotated.z,
-        sin(pitch) * rotated.y + cos(pitch) * rotated.z
-    );
+    float camera_x = dot(relative, right);
+    float camera_y = dot(relative, up);
+    float depth = dot(relative, forward);
 
-    float scale = 2.8 / (4.0 - tilted.z);
+    float fov = radians(39.0);
+    float focal = 1.0 / tan(fov * 0.5);
+
+    float near_plane = 1.0;
+    float far_plane = 300.0;
+
+    float clip_z = (
+        (far_plane + near_plane) * depth
+        - 2.0 * far_plane * near_plane
+    ) / (far_plane - near_plane);
 
     gl_Position = vec4(
-        tilted.x * scale * 1.5 / u_aspect,
-        tilted.y * scale * 1.5,
-        tilted.z * 0.08,
-        1.0
+        camera_x * focal / u_aspect,
+        camera_y * focal,
+        clip_z,
+        depth
     );
+
     gl_PointSize = 5.0;
 }
