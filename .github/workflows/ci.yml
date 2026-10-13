@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Rust and WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk@0.21.14
+          fallback: none
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Test numerical core
+        run: cargo test --locked -p chaos-core
+
+      - name: Lint numerical core
+        run: cargo clippy --locked -p chaos-core --all-targets -- -D warnings
+
+      - name: Lint web target
+        run: cargo clippy --locked -p chaos-web --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Build production WASM
+        run: trunk build --release
+
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          test -f dist/index.html
+          find dist -type f -name '*.wasm' -print -quit | grep -q .
+          git diff --exit-code -- Cargo.lock
+
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dopechaos-site
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7

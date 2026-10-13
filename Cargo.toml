@@ -1,8 +1,10 @@
 [workspace]
 members = [
-    "crates/dc-protocol",
-    "crates/dc-core",
-    "crates/dc-render",
-    "crates/dc-app",
+    "crates/chaos-core",
+    "crates/chaos-web",
 ]
-resolver = "2"
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99"
