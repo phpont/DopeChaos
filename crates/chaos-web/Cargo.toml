@@ -15,6 +15,8 @@ version = "=0.3.106"
 features = [
     "DomRect",
     "DomRectReadOnly",
+    "Event",
+    "EventTarget",
     "Element",
     "HtmlCanvasElement",
     "ResizeObserver",
