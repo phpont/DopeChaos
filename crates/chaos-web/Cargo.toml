@@ -1,0 +1,8 @@
+[package]
+name = "chaos-web"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+leptos = { version = "=0.8.22", features = ["csr"] }

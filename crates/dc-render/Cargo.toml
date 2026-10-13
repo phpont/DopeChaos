@@ -1,7 +1,0 @@
-[package]
-name = "dc-render"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-dc-protocol = { path = "../dc-protocol" }
