@@ -138,7 +138,11 @@ version = "0.1.0"
 name = "chaos-web"
 version = "0.1.0"
 dependencies = [
+ "chaos-core",
+ "js-sys",
  "leptos",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
